@@ -20,8 +20,8 @@ flags.DEFINE_boolean("clean",       False,      "clean train folder")
 flags.DEFINE_boolean("train",       False,      "Wither train the model")
 # configurations for the model
 flags.DEFINE_integer("seg_dim",     20,         "Embedding size for segmentation, 0 if not used")
-flags.DEFINE_integer("char_dim",    100,        "Embedding size for characters")
-flags.DEFINE_integer("lstm_dim",    100,        "Num of hidden units in LSTM")
+flags.DEFINE_integer("char_dim",    300,        "Embedding size for characters")
+flags.DEFINE_integer("lstm_dim",    300,        "Num of hidden units in LSTM")
 flags.DEFINE_string("tag_schema",   "iobes",    "tagging schema iobes or iob")
 
 # configurations for training
@@ -44,7 +44,8 @@ flags.DEFINE_string("vocab_file",   "vocab.json",   "File for vocab")
 flags.DEFINE_string("config_file",  "config_file",  "File for config")
 flags.DEFINE_string("script",       "conlleval",    "evaluation script")
 flags.DEFINE_string("result_path",  "result",       "Path for results")
-flags.DEFINE_string("emb_file",     "wiki_100.utf8", "Path for pre_trained embedding")
+#flags.DEFINE_string("emb_file",     "wiki_100.utf8", "Path for pre_trained embedding")
+flags.DEFINE_string("emb_file",     "merge_sgns_bigram_char300.txt", "Path for pre_trained embedding")
 flags.DEFINE_string("train_file",   os.path.join("data", "example.train"),  "Path for train data")
 flags.DEFINE_string("dev_file",     os.path.join("data", "example.dev"),    "Path for dev data")
 flags.DEFINE_string("test_file",    os.path.join("data", "example.test"),   "Path for test data")
@@ -198,31 +199,51 @@ def evaluate_line():
         char_to_id, id_to_char, tag_to_id, id_to_tag = pickle.load(f)
     with tf.Session(config=tf_config) as sess:
         model = create_model(sess, Model, FLAGS.ckpt_path, load_word2vec, config, id_to_char, logger)
-        while True:
-            # try:
-            #     line = input("请输入测试句子:")
-            #     result = model.evaluate_line(sess, input_from_line(line, char_to_id), id_to_tag)
-            #     print(result)
-            # except Exception as e:
-            #     logger.info(e)
 
-                line = input("请输入测试句子:")
-                result = model.evaluate_line(sess, input_from_line(line, char_to_id), id_to_tag)
-                print(result)
+        line = "症状出现三天了 浑身发热在打字。"
+        result = model.evaluate_line(sess, input_from_line(line, char_to_id), id_to_tag)
+        entities = result["entities"]
+        eneities_word = []
+        for word in entities:
+            eneities_word.append(word["word"])
+
+        print(eneities_word)
 
 
-def main(_):
+def evaluate_text(text):
+    config = load_config(FLAGS.config_file)
+    logger = get_logger(FLAGS.log_file)
+    # limit GPU memory
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    with open(FLAGS.map_file, "rb") as f:
+        char_to_id, id_to_char, tag_to_id, id_to_tag = pickle.load(f)
+    with tf.Session(config=tf_config) as sess:
+        model = create_model(sess, Model, FLAGS.ckpt_path, load_word2vec, config, id_to_char, logger)
 
-    if FLAGS.train:
-        if FLAGS.clean:
-            clean(FLAGS)
-        train()
-    else:
-        evaluate_line()
+        line = text
+        result = model.evaluate_line(sess, input_from_line(line, char_to_id), id_to_tag)
+        entities = result["entities"]
+        eneities_word = []
+        for word in entities:
+            eneities_word.append(word["word"])
+
+    tf.reset_default_graph()
+    return eneities_word
 
 
-if __name__ == "__main__":
-    tf.app.run(main)
+# def main(_):
+#
+#     if FLAGS.train:
+#         if FLAGS.clean:
+#             clean(FLAGS)
+#         train()
+#     else:
+#         evaluate_line()
+#
+#
+# if __name__ == "__main__":
+#     tf.app.run(main)
 
 
 
